@@ -1,84 +1,84 @@
 package wyf.MentalMultiply;
 
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.event.MouseWheelEvent;
-import java.awt.event.MouseWheelListener;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Scanner;
-
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.WindowConstants;
+import java.awt.BorderLayout;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.FileNotFoundException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * wav文件波形查看器，ctrl+滚轮水平缩放，alt+滚轮竖直缩放
  */
 public class Oscillo extends JFrame {
-	Short[] data;
-	int pos;
-	final int width = 1200, height = 400;
-	BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB_PRE);
-	int samplePerPixel = 1;// 一个像素跨越多少个音频点
-	double k = 0.6;
+public static void main(String[] args) throws FileNotFoundException {
+   String[] s = {"576", "866", "866-2", "912", "1209"};
+   for (String i : s) {
+      short[] data = AudioUtil.getData(Paths.get("test-data/" + i + ".wav"));
+      Oscillo o = new Oscillo(data, i);
+      o.exportImage(ArrayUtil.arrayToDouble(data), i);
+   }
+}
 
-	public static void main(String[] args) throws FileNotFoundException {
-		Scanner cin = new Scanner(new File("debug.txt"));
-		ArrayList<Short> a = new ArrayList<>();
-		while (cin.hasNext()) {
-			short x = cin.nextShort();
-			a.add(x);
-		}
-		cin.close();
-		Short[] data = new Short[a.size()];
-		data = a.toArray(data);
-		new Oscillo(data);
-	}
+static void checkRight() {
+   double[] data = new double[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+   new Oscillo(data, "haha");
+}
 
-	public Oscillo(Short[] data2) {
-		data = data2;
-		setSize(width, height);
-		setVisible(true);
-		addMouseWheelListener(new MouseWheelListener() {
+static void exportImage(double[] data, Path path) {
+   try {
+      int width = data.length;
+      double height = 0;
+      int H = 900;
+      for (double i : data) height = Math.max(height, Math.abs(i));
+      BufferedImage image = new BufferedImage(width, H, BufferedImage.TYPE_INT_ARGB);
+      Graphics2D g = image.createGraphics();
+      for (int i = 0; i < data.length; i++) {
+         g.drawLine(i, H >> 1, i, (int) (-(data[i] / height * H / 2) + H / 2));
+      }
+      OutputStream cout = Files.newOutputStream(path);
+      ImageIO.write(image, "jpg", cout);
+      cout.close();
+   } catch (Exception e) {
+      e.printStackTrace();
+   }
+}
 
-			@Override
-			public void mouseWheelMoved(MouseWheelEvent e) {
-				if (e.isControlDown()) {
-					samplePerPixel += e.getWheelRotation() * 4;
-					if (samplePerPixel < 1)
-						samplePerPixel = 1;
-					if (samplePerPixel > data.length / 2)
-						samplePerPixel = data.length / 2;
-				} else if (e.isAltDown()) {
-					k += e.getPreciseWheelRotation() * 0.1;
-				} else {
-					pos += e.getWheelRotation() * samplePerPixel * 20;
-					if (pos < 0)
-						pos = 0;
-					if (pos > data.length - samplePerPixel * width) {
-						pos = data.length - samplePerPixel * width;
-						if (pos < 0)
-							pos = 0;
-					}
-				}
-				repaint();
-			}
-		});
-	}
+static void exportImage(double[] data, String file) {
+   if (file.endsWith(".jpg") == false) file += ".jpg";
+   exportImage(data, Paths.get(file));
+}
 
-	@Override
-	public void paint(Graphics g) {
-		Graphics2D gg = image.createGraphics();
-		gg.clearRect(0, 0, image.getWidth(), image.getHeight());
-		Point last = new Point(0, height / 2);
-		for (int i = 0; i < width && pos + samplePerPixel * i < data.length; i++) {
-			int h = (int) (k * data[pos + i * samplePerPixel]);
-			Point now = new Point(i, height / 2 + h);
-			gg.drawLine(last.x, last.y, now.x, now.y);
-			last = now;
-		}
-		g.drawImage(image, 0, 0, null);
-	}
+void init(JPanel panel, String title) {
+   setLayout(new BorderLayout());
+   setTitle(title);
+   add(panel);
+   setLocationRelativeTo(null);
+   setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+   setExtendedState(MAXIMIZED_BOTH);
+   setVisible(true);
+   panel.requestFocus();
+}
+
+void init(double[] data, String title) {
+   JPanel panel = new OscilloPanel(data, title);
+   init(panel, title);
+}
+
+Oscillo(short[] data, String title) {
+   double[] a = new double[data.length];
+   for (int i = 0; i < data.length; i++) a[i] = data[i];
+   init(a, title);
+}
+
+Oscillo(double[] data, String title) {
+   init(data, title);
+}
+
 }
